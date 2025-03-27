@@ -11,6 +11,7 @@ from utils.pc_process import pc_estimate_normals
 import pyviz3d.visualizer as viz
 from utils.viz_constants import SCANNET_COLOR_MAP_200, VIZ_TOOL_OPTIONS
 
+
 def viz_3d(to_plot_list, viz_tool="pyviz3d"):
     """
     Visualize 3D point clouds.
@@ -23,7 +24,7 @@ def viz_3d(to_plot_list, viz_tool="pyviz3d"):
 
     Returns:
         (None): This function does not return any value. It opens a visualizer window displaying the geometries.
-    
+
     Example:
         >>> import open3d as o3d
 
@@ -34,26 +35,38 @@ def viz_3d(to_plot_list, viz_tool="pyviz3d"):
         >>> viz_3d([pcd])
     """
     if viz_tool not in VIZ_TOOL_OPTIONS:
-        assert False, f"Unknown viz tool option {viz_tool}. Visualization tool option must only be 'open3d' or 'pyviz3d'."
+        assert (
+            False
+        ), f"Unknown viz tool option {viz_tool}. Visualization tool option must only be 'open3d' or 'pyviz3d'."
 
     if viz_tool == "pyviz3d":
         v = viz.Visualizer()
         for i, plot_list_item in enumerate(to_plot_list):
             pcd = copy.deepcopy(plot_list_item)
-            
-            if not pcd.has_normals():
-                pcd = pc_estimate_normals(pcd, radius = 0.1, max_nn = 50)
 
-            pcd_points = np.array(pcd.points) 
+            if not pcd.has_normals():
+                pcd = pc_estimate_normals(pcd, radius=0.1, max_nn=50)
+
+            pcd_points = np.array(pcd.points)
             pcd_points -= np.mean(pcd_points, axis=0)
             pcd.points = o3d.utility.Vector3dVector(pcd_points)
 
-            v.add_points(f'element_{i}', np.array(pcd.points), np.array(pcd.colors)*255., np.array(pcd.normals), point_size=8, visible=True)
-        v.save('pyviz3d_output')
+            v.add_points(
+                f"element_{i}",
+                np.array(pcd.points),
+                np.array(pcd.colors) * 255.0,
+                np.array(pcd.normals),
+                point_size=8,
+                visible=True,
+            )
+        v.save("pyviz3d_output")
     else:
         o3d.visualization.draw_geometries(to_plot_list)
 
-def viz_masks(laser_scan_pcd, mask_indices, mask_labels = None, use_normals=True, viz_tool="pyviz3d"):
+
+def viz_masks(
+    laser_scan_pcd, mask_indices, mask_labels=None, use_normals=True, viz_tool="pyviz3d"
+):
     """
     Visualize point cloud masks.
 
@@ -68,41 +81,63 @@ def viz_masks(laser_scan_pcd, mask_indices, mask_labels = None, use_normals=True
         (None): The function visualizes the point cloud masks and does not return any value.
     """
     if viz_tool not in VIZ_TOOL_OPTIONS:
-        assert False, f"Unknown viz tool option {viz_tool}. Visualization tool option must only be 'open3d' or 'pyviz3d'."
+        assert (
+            False
+        ), f"Unknown viz tool option {viz_tool}. Visualization tool option must only be 'open3d' or 'pyviz3d'."
 
     if mask_labels is not None and viz_tool == "open3d":
-        assert False, f"The mask_labels input is only supported for the visualization option 'pyviz3d'"
+        assert (
+            False
+        ), f"The mask_labels input is only supported for the visualization option 'pyviz3d'"
 
     if mask_labels is not None:
-        assert len(mask_indices) == len(mask_labels), f"The length of mask_labels must be equal to the length of mask_indices. Each label must correspond to a single mask."
+        assert len(mask_indices) == len(
+            mask_labels
+        ), f"The length of mask_labels must be equal to the length of mask_indices. Each label must correspond to a single mask."
 
     pcd = copy.deepcopy(laser_scan_pcd)
     if not pcd.has_normals() and use_normals:
-        pcd = pc_estimate_normals(pcd, radius = 0.1, max_nn = 50)
+        pcd = pc_estimate_normals(pcd, radius=0.1, max_nn=50)
 
     # center the point cloud
-    pcd_points = np.array(pcd.points) 
+    pcd_points = np.array(pcd.points)
     pcd_points -= np.mean(pcd_points, axis=0)
     pcd.points = o3d.utility.Vector3dVector(pcd_points)
 
     if viz_tool == "pyviz3d":
-        assert use_normals, f"use_normals must be set to True if the visualization tool option is 'pyviz3d'."
+        assert (
+            use_normals
+        ), f"use_normals must be set to True if the visualization tool option is 'pyviz3d'."
         v = viz.Visualizer()
-        v.add_points('RGB Color', np.array(pcd.points), np.array(pcd.colors)*255., np.array(pcd.normals), point_size=8, visible=False)
+        v.add_points(
+            "RGB Color",
+            np.array(pcd.points),
+            np.array(pcd.colors) * 255.0,
+            np.array(pcd.normals),
+            point_size=8,
+            visible=False,
+        )
 
-    pcd_colors = np.array(pcd.colors) 
-    new_pcd_colors = np.ones((pcd_colors.shape))*0+ (0.77, 0.77, 0.77)
+    pcd_colors = np.array(pcd.colors)
+    new_pcd_colors = np.ones((pcd_colors.shape)) * 0 + (0.77, 0.77, 0.77)
 
     if viz_tool == "pyviz3d":
-        v.add_points('Background Color', np.array(pcd.points), new_pcd_colors*255., np.array(pcd.normals), point_size=8, visible=True)
+        v.add_points(
+            "Background Color",
+            np.array(pcd.points),
+            new_pcd_colors * 255.0,
+            np.array(pcd.normals),
+            point_size=8,
+            visible=True,
+        )
 
     COLOR_MAP = list(SCANNET_COLOR_MAP_200.values())
 
     for annot_i, mask_idx in enumerate(mask_indices):
         cur_color = COLOR_MAP[annot_i % len(COLOR_MAP)]
 
-        new_pcd_colors[mask_idx] = cur_color 
-        new_pcd_colors[mask_idx] /= 255.
+        new_pcd_colors[mask_idx] = cur_color
+        new_pcd_colors[mask_idx] /= 255.0
 
         if viz_tool == "pyviz3d":
             mask_points = np.array(pcd.points)[mask_idx]
@@ -115,18 +150,39 @@ def viz_masks(laser_scan_pcd, mask_indices, mask_labels = None, use_normals=True
                 cur_label = f"label_{annot_i}"
 
             if "exclude" in cur_label:
-                v.add_points(cur_label, mask_points, mask_colors*255., mask_normals, point_size=8, visible=False)
+                v.add_points(
+                    cur_label,
+                    mask_points,
+                    mask_colors * 255.0,
+                    mask_normals,
+                    point_size=8,
+                    visible=False,
+                )
             else:
-                v.add_points(cur_label, mask_points, mask_colors*255., mask_normals, point_size=8, visible=True)
-        
+                v.add_points(
+                    cur_label,
+                    mask_points,
+                    mask_colors * 255.0,
+                    mask_normals,
+                    point_size=8,
+                    visible=True,
+                )
+
     if viz_tool == "pyviz3d":
-        v.save('pyviz3d_output')
+        v.save("pyviz3d_output")
     else:
         pcd.colors = o3d.utility.Vector3dVector(new_pcd_colors)
         viz_3d([pcd])
 
 
-def viz_motions(laser_scan_pcd, motion_types, motion_dirs, motion_origins, motion_viz_orients, motion_labels = None):
+def viz_motions(
+    laser_scan_pcd,
+    motion_types,
+    motion_dirs,
+    motion_origins,
+    motion_viz_orients,
+    motion_labels=None,
+):
     """
     Visualize point cloud masks.
 
@@ -143,41 +199,59 @@ def viz_motions(laser_scan_pcd, motion_types, motion_dirs, motion_origins, motio
     """
     pcd = copy.deepcopy(laser_scan_pcd)
     if not pcd.has_normals():
-        pcd = pc_estimate_normals(pcd, radius = 0.1, max_nn = 50)
+        pcd = pc_estimate_normals(pcd, radius=0.1, max_nn=50)
 
     # center the point cloud
-    pcd_points = np.array(pcd.points) 
+    pcd_points = np.array(pcd.points)
     pcd_mean = np.mean(pcd_points, axis=0)
     pcd.points = o3d.utility.Vector3dVector(pcd_points - pcd_mean)
 
     v = viz.Visualizer()
-    v.add_points('RGB Color', np.array(pcd.points), np.array(pcd.colors)*255., np.array(pcd.normals), point_size=8, visible=False)
+    v.add_points(
+        "RGB Color",
+        np.array(pcd.points),
+        np.array(pcd.colors) * 255.0,
+        np.array(pcd.normals),
+        point_size=8,
+        visible=False,
+    )
 
-    pcd_colors = np.array(pcd.colors) 
-    new_pcd_colors = np.ones((pcd_colors.shape))*0+ (0.77, 0.77, 0.77)
+    pcd_colors = np.array(pcd.colors)
+    new_pcd_colors = np.ones((pcd_colors.shape)) * 0 + (0.77, 0.77, 0.77)
 
     if motion_labels is not None:
         motion_labels = [f"{motion_labels[i]}_{i}" for i in range(len(motion_labels))]
     else:
         motion_labels = [f"motion_{i}" for i in range(len(motion_types))]
 
-    v.add_points('Background Color', np.array(pcd.points), new_pcd_colors*255., np.array(pcd.normals), point_size=8, alpha=.8, visible=True)
+    v.add_points(
+        "Background Color",
+        np.array(pcd.points),
+        new_pcd_colors * 255.0,
+        np.array(pcd.normals),
+        point_size=8,
+        alpha=0.8,
+        visible=True,
+    )
 
     COLOR_MAP = list(SCANNET_COLOR_MAP_200.values())
-    for idx, (m_type, m_dir, m_origin, m_orient, m_label) in \
-        enumerate(zip(motion_types, motion_dirs, motion_origins, motion_viz_orients, motion_labels)):
+    for idx, (m_type, m_dir, m_origin, m_orient, m_label) in enumerate(
+        zip(
+            motion_types, motion_dirs, motion_origins, motion_viz_orients, motion_labels
+        )
+    ):
 
-        cur_color = np.array(COLOR_MAP[idx % len(COLOR_MAP)]) / 255.
+        cur_color = np.array(COLOR_MAP[idx % len(COLOR_MAP)]) / 255.0
         v.add_motion(
-            m_label, 
-            m_type, 
-            np.array(m_dir), 
-            np.array(m_origin - pcd_mean), 
-            m_orient, 
-            cur_color, 
-            cur_color, 
-            visible=True
+            m_label,
+            m_type,
+            np.array(m_dir),
+            np.array(m_origin - pcd_mean),
+            m_orient,
+            cur_color,
+            cur_color,
+            visible=True,
         )
         breakpoint()
 
-    v.save('pyviz3d_output')
+    v.save("pyviz3d_output")

@@ -70,7 +70,7 @@ def main(
         mapping = np.ones([num_points, 4], dtype=int)
         mapping[:, 1:4] = point2img_mapper.compute_mapping(pose, point_positions, depth, intrinsic)
 
-        if mapping[:, 3].sum() == 0: # no points corresponds to this image, skip
+        if mapping[:, 3].sum() == 0:  # no points corresponds to this image, skip
             continue
         
         mask = mapping[:, 3]
@@ -83,7 +83,7 @@ def main(
     if len(skipped_frames) > 0:
         print(f"{len(skipped_frames)} frames were skipped because of unmet conditions.")
 
-    counter[counter==0] = 1e-5
+    counter[counter == 0] = 1e-5
     feat_bank = sum_features / counter
     feat_bank[feat_bank[:, 0:3] == [0.0, 0.0, 0.0]] = 169.0 / 255.0
 
