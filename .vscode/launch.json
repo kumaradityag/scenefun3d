@@ -1,0 +1,54 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    
+    {
+      "name": "Examples/ProjectRGBOnLaserScan",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "examples/project_rgb_on_laser_scan.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--data_dir", "~/Programming/scenefun3d/data",
+      ]
+    },
+    {
+      "name": "Examples/ShowAnnotations",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "examples/show_annotations.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--data_dir", "~/Programming/scenefun3d/data",
+      ]
+    },
+    {
+      "name": "Export NerfStudio",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "examples/export_nerfstudio_format.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--data_dir", "~/Programming/scenefun3d/data/test",
+      ]
+    },  ]
+}
+
+
+
