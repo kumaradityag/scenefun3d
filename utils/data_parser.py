@@ -201,7 +201,7 @@ class DataParser:
             traj_timestamp = line.split(" ")[0]
 
             if pose_source == "colmap":
-                poses_from_traj[f"{float(traj_timestamp)}"] = np.array(self.TrajStringToMatrix(line)[1].tolist())
+                poses_from_traj[f"{traj_timestamp}"] = np.array(self.TrajStringToMatrix(line)[1].tolist())
             elif pose_source == "arkit":
                 poses_from_traj[f"{round(float(traj_timestamp), 3):.3f}"] = np.array(self.TrajStringToMatrix(line)[1].tolist())
 
@@ -421,8 +421,6 @@ class DataParser:
 
         return desired_pose
 
-
-
     def get_interpolated_pose(self, 
                                 desired_timestamp,
                                 poses_from_traj, 
@@ -511,7 +509,6 @@ class DataParser:
 
         return desired_pose
 
-
     def get_transform(self, visit_id, video_id):
         """
         Load the transformation matrix from a .npy file. This transformation matrix converts coordinates from the Faro laser scan coordinate system to the ARKit coodinate system.
@@ -526,7 +523,6 @@ class DataParser:
         transform_path = self.get_data_asset_path(data_asset_identifier="transform", visit_id=visit_id, video_id=video_id)
         transform = np.load(transform_path) 
         return transform
-
 
     def read_rgb_frame(self, rgb_frame_path, normalize=False):
         """
@@ -634,7 +630,6 @@ class DataParser:
         
         return cropped_laser_scan
 
-
     def get_data_asset_path(self, data_asset_identifier, visit_id, video_id=None):
         """
         Get the file path for a specified data asset.
@@ -670,7 +665,6 @@ class DataParser:
             data_path = data_path.replace("<video_id>", video_id)
 
         return data_path
-
 
     def get_annotations(self, visit_id, group_excluded_points=True):
         """
@@ -713,7 +707,6 @@ class DataParser:
 
         return annotations_data
 
-
     def get_descriptions(self, visit_id):
         """
         Retrieve the natural language task descriptions for a specified scene.
@@ -730,7 +723,6 @@ class DataParser:
             descriptions_data = json.load(f)["descriptions"]
 
         return descriptions_data
-
 
     def get_motions(self, visit_id):
         """
