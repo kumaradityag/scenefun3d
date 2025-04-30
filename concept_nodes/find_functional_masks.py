@@ -6,6 +6,7 @@ from pathlib import Path
 import json
 from scipy.spatial import KDTree
 from tqdm import tqdm
+from typing import List, Tuple, Dict
 
 from utils.data_parser import DataParser
 
@@ -55,6 +56,17 @@ def save_benchmark_format(masks, func_types, visit_id, results_dir):
         results_dir: str or Path, base directory to save benchmark results
     """
     results_dir = Path(results_dir)
+
+    # Delete existing results
+    visit_file = results_dir / f"{visit_id}.txt"
+    if visit_file.exists():
+        visit_file.unlink()
+
+    predicted_masks_dir = results_dir / "predicted_masks"
+    if predicted_masks_dir.exists():
+        for mask_file in predicted_masks_dir.glob(f"{visit_id}_*"):
+            mask_file.unlink()
+
     predicted_masks_dir = results_dir / "predicted_masks"
     predicted_masks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -95,29 +107,42 @@ def load_map_and_segments(map_path):
 # -------------------------------
 # Extract functionality instances
 # -------------------------------
-def extract_functionality_instances(segments_anno, map_pcd):
+def extract_functionality_instances(
+    segments_anno: dict,
+    map_pcd: "o3d.geometry.PointCloud",
+    skill_to_idx: Dict[str, int]
+) -> Tuple[List[np.ndarray], List[int]]:
     """
-    For each (skill, global_indices) pair, extract corresponding points.
-    Returns:
-        func_pointclouds: list of np.ndarray with shape (N_i, 3)
-        func_types: list of int skill indices
+    Build a (point‑cloud, skill_id) list for *every affordance instance* stored
+    in `segments_anno` that has a valid mask_3d_indices_global field.
+
+    Returns
+    -------
+    func_pointclouds : list[np.ndarray]
+        Each array has shape (N_i, 3) containing XYZs of one affordance instance.
+    func_types       : list[int]
+        Parallel list of integer skill indices (from `skill_to_idx`).
     """
-    map_points = np.asarray(map_pcd.points)
-    func_pointclouds = []
-    func_types = []
+    map_points = np.asarray(map_pcd.points)      # (M, 3)
+    func_pointclouds: list[np.ndarray] = []
+    func_types:       list[int] = []
 
     for seg in segments_anno["segGroups"]:
-        affordance_dict = seg.get("affordance_points_idx", {})
-        for skill_name, global_indices in affordance_dict.items():
-            if skill_name not in SKILL_TO_IDX:
-                print(f"Warning: {skill_name} not in skill list. Skipping...")
-                continue
-            if not global_indices:
+        inst_dict = seg.get("affordance_instances", {})
+
+        for inst in inst_dict.values():
+            skill_name = inst["type"]                       # e.g. "ROTATE"
+            if skill_name not in skill_to_idx:
+                print(f"Warning: {skill_name} not in skill list – skipped.")
                 continue
 
-            pts = map_points[global_indices]
+            global_idx = inst.get("mask_3d_indices_global", [])
+            if not global_idx:              # empty or missing
+                continue
+
+            pts = map_points[global_idx]    # shape (Ni, 3)
             func_pointclouds.append(pts)
-            func_types.append(SKILL_TO_IDX[skill_name])
+            func_types.append(skill_to_idx[skill_name])
 
     return func_pointclouds, func_types
 
@@ -158,6 +183,36 @@ def compute_masks_for_functionality_instances(func_pointclouds, laser_scan_point
 
     return masks
 
+def compute_masks_from_laser_queries(func_pointclouds, laser_scan_points, threshold=0.5):
+    """
+    For each laser scan point, check which functionality pointclouds it is close to (within threshold).
+    Then mark those entries in the mask.
+
+    Args:
+        func_pointclouds: list of (N_i, 3) np.ndarray representing functionality instances
+        laser_scan_points: (M, 3) np.ndarray of laser scan points
+        threshold: float, distance threshold for matching
+
+    Returns:
+        masks: (num_func_instances, num_laser_points) boolean mask array
+    """
+    num_func_instances = len(func_pointclouds)
+    num_laser_pts = laser_scan_points.shape[0]
+    masks = np.zeros((num_func_instances, num_laser_pts), dtype=bool)
+
+    for i, func_pts in tqdm(enumerate(func_pointclouds), total=num_func_instances, desc="Building KD-Trees and querying"):
+        if func_pts.shape[0] == 0:
+            continue
+
+        kd_tree = KDTree(func_pts)
+        neighbors = kd_tree.query_ball_point(laser_scan_points, r=threshold)
+
+        for laser_idx, is_close in enumerate(neighbors):
+            if is_close:  # if the list is non-empty, the laser point is close to this functionality instance
+                masks[i, laser_idx] = True
+
+    return masks
+
 
 
 # -------------------------------
@@ -167,7 +222,7 @@ def main(args):
     map_pcd, segments_anno = load_map_and_segments(args.map_path)
 
     # Extract functionality instances
-    func_pcds, func_types = extract_functionality_instances(segments_anno, map_pcd)
+    func_pcds, func_types = extract_functionality_instances(segments_anno, map_pcd, SKILL_TO_IDX)
     print(f"Total functionality instances found: {len(func_pcds)}")
 
     # Load laser scan
@@ -175,9 +230,10 @@ def main(args):
     laser_scan = data_parser.get_laser_scan(args.visit_id)
     laser_scan_points = np.asarray(laser_scan.points)
 
-    # Align and compute masks
-    threshold = 0.01  # 2.5 cm
+    # Align and compute masks 
+    threshold = 0.01  # 1 cm
     masks = compute_masks_for_functionality_instances(func_pcds, laser_scan_points, threshold)
+    # masks = compute_masks_from_laser_queries(func_pcds, laser_scan_points, threshold)
 
     # Save results
     save_path = Path(args.map_path)
