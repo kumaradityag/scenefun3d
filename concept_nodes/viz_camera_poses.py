@@ -15,12 +15,15 @@ import viser.transforms as vtf
 
 from concept_nodes.utils import get_scene_intrinsics, get_scene_trajectories
 
-def load_map(map_dir: Path) -> tuple[
+
+def load_map(
+    map_dir: Path,
+) -> tuple[
     np.ndarray,
     np.ndarray,
     Dict[int, List[int]],
     Dict[int, List[np.ndarray]],
-    Dict[int, str]
+    Dict[int, str],
 ]:
     pcd = o3d.io.read_point_cloud(str(map_dir / "point_cloud.pcd"))
     points = np.asarray(pcd.points)
@@ -51,9 +54,9 @@ def build_object_clouds(
     return clouds
 
 
-# -----------------------------------------------------------------------------#
-# -----------------------------  Visualiser  ----------------------------------#
-# -----------------------------------------------------------------------------#
+# -----------------------------------------------------------------------------
+# Visualiser
+# -----------------------------------------------------------------------------
 class ObjectMapViewer:
     def __init__(
         self,
@@ -67,11 +70,13 @@ class ObjectMapViewer:
         self.fov, self.aspect = fov, aspect
         self.frustum_scale, self.point_size = frustum_scale, point_size
 
-        (self.points,
-         self.colours,
-         self.point_idxs_per_obj,
-         self.cam_poses_per_obj,
-         self.labels_per_obj) = load_map(map_dir)
+        (
+            self.points,
+            self.colours,
+            self.point_idxs_per_obj,
+            self.cam_poses_per_obj,
+            self.labels_per_obj,
+        ) = load_map(map_dir)
 
         # Print available objects with their labels.
         print("Available objects:")
@@ -87,7 +92,7 @@ class ObjectMapViewer:
         self.scene_shift = self.points.mean(axis=0)
 
         # shift points
-        self.points -= self.scene_shift      
+        self.points -= self.scene_shift
 
         # shift cameras
         for obj_id, idxs in self.cam_poses_per_obj.items():
@@ -107,7 +112,9 @@ class ObjectMapViewer:
         )
 
         self.server = viser.ViserServer()
-        self.server.gui.configure_theme(titlebar_content=None, control_layout="collapsible")
+        self.server.gui.configure_theme(
+            titlebar_content=None, control_layout="collapsible"
+        )
 
         # -------------------------- scene objects --------------------------- #
         self.main_cloud = self.server.scene.add_point_cloud(
@@ -152,7 +159,7 @@ class ObjectMapViewer:
             self.main_cloud.visible = False
             # hide other obj pcds, show selected one
             for other_id, handle in self.obj_clouds.items():
-                handle.visible = (other_id == obj_id)
+                handle.visible = other_id == obj_id
             if obj_id not in self.obj_clouds:
                 pts, colors = self.object_clouds[obj_id]
                 self.obj_clouds[obj_id] = self.server.scene.add_point_cloud(
@@ -261,9 +268,7 @@ def main(
 
     # Load camera trajectories which is a List[List[np.ndarray]]
     map_trajectories = get_scene_trajectories(
-        data_path=scenefun3d_data_dir,
-        scene_id=scene_id,
-        stride=20
+        data_path=scenefun3d_data_dir, scene_id=scene_id, stride=20
     )
 
     # from the intrinsics, calculate the fov and aspect ratio

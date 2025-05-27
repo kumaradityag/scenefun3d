@@ -10,8 +10,6 @@ from tqdm import tqdm
 from utils.data_parser import DataParser
 from utils.pc_process import pc_estimate_normals
 
-# from .CLIP import CLIP
-
 
 def load_map_pcd_and_segments(map_path):
     """
@@ -111,18 +109,6 @@ def main(args):
     print(f"Found {num_instances} instances in the map.")
 
     # -----------------------
-    #  Potentially load CLIP
-    # -----------------------
-    # if False:
-    #     # Only load if needed
-    #     ft_extractor = CLIP(
-    #         model_name="ViT-H-14",
-    #         pretrained="laion2b_s32b_b79k",
-    #         device="cuda",
-    #         cache_dir="/home/kumaraditya/checkpoints",
-    #     )
-
-    # -----------------------
     #  Load a laser scan
     # -----------------------
     data_parser = DataParser(args.data_dir)
@@ -132,9 +118,9 @@ def main(args):
 
     # -----------------------
     #  Create the instance masks for the laser scan
+    #  For each laser point, find the nearest neighbor in the map pcd (with threshold).
     # -----------------------
-    # For each laser point, find the nearest neighbor in the map pcd (with threshold).
-    threshold = 0.025  # or 0.05, or 0.025, etc.
+    threshold = args.threshold
     masks = map_laser_scan_to_instances(
         laser_scan_points,
         map_pcd,
@@ -155,6 +141,12 @@ if __name__ == "__main__":
     parser.add_argument("--visit_id", required=True, help="Identifier of the scene")
     parser.add_argument(
         "--map_path", required=True, help="Path of the concept-nodes map"
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.025,
+        help="Distance threshold for matching laser points to map instances",
     )
     args = parser.parse_args()
 
