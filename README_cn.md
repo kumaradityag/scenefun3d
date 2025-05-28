@@ -85,6 +85,8 @@ python -m eval.functionality_segmentation.evaluate \
     --gt_dir /path/to/scenefun3d/val_gt
 ```
 
+Replace the `pred_dir` argument with the path to the pseudo predictions (`/path/to/scenefun3d/val_pseudo_pred`) to get AP numbers on these pseudo preds.
+
 #### Instance Recall & Semantic Segmentation
 
 * Config: `concept_nodes/configs/metrics.yaml`
