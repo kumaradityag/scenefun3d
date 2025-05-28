@@ -5,7 +5,8 @@ functional-affordance predictions vs. ground truth and save pastel-coloured char
 
 from pathlib import Path
 from typing import Dict, List, Tuple
-import os
+import hydra
+from omegaconf import DictConfig
 
 import numpy as np
 import seaborn as sns
@@ -281,10 +282,12 @@ def plot_histograms(
 # -----------------------------------------------------------------------------
 #  Main
 # -----------------------------------------------------------------------------
-def main(pred_dir: Path, gt_file: Path, save_dir: Path):
-    pred_dir = Path(pred_dir)
-    gt_file = Path(gt_file)
-    save_dir = Path(save_dir)
+@hydra.main(version_base=None, config_path="configs", config_name="plots")
+def main(cfg: DictConfig):
+
+    pred_dir = Path(cfg.paths.map_dir)
+    gt_file = Path(cfg.paths.scenefun3d_gt_dir) / f"{cfg.scene}.txt"
+    save_dir = Path(cfg.paths.plots_dir) / cfg.scene
     fig_dir = save_dir / "figures"
     hist_dir = save_dir / "histograms"
 
@@ -308,11 +311,4 @@ def main(pred_dir: Path, gt_file: Path, save_dir: Path):
 
 
 if __name__ == "__main__":
-    predictions_directory = Path(
-        "/home/kumaraditya/datasets/scenefun3d/cg_outputs_weekend_run/scenefun3d_420693_cg-detector_2025-05-04-10-50-08.575507"
-    )  # folder containing the two .npy files
-    ground_truth_file = Path(
-        "/home/kumaraditya/datasets/scenefun3d/val_gt/420693.txt"
-    )  # single txt file
-    output_dir = Path("./concept_nodes/metric_plots_3img")  # where plots go
-    main(predictions_directory, ground_truth_file, output_dir)
+    main()

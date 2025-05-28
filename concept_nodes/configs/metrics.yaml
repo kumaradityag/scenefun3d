@@ -1,0 +1,8 @@
+defaults:
+  - paths: paths
+  - _self_
+
+scene: 420693
+iou_thresholds: [0.10, 0.25, 0.50]
+class_agnostic: false
+pseudo_pred: false

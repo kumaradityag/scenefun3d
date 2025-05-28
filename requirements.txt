@@ -9,3 +9,5 @@ scipy
 tqdm
 tyro
 viser
+hydra-core
+seaborn

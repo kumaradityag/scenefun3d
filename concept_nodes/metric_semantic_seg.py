@@ -1,5 +1,7 @@
 import numpy as np
 from pathlib import Path
+import hydra
+from omegaconf import DictConfig
 
 from eval.functionality_segmentation.eval_utils import util_3d
 from eval.functionality_segmentation.eval_utils.benchmark_labels import (
@@ -7,22 +9,11 @@ from eval.functionality_segmentation.eval_utils.benchmark_labels import (
     VALID_CLASS_IDS,
 )
 
-# -----------------------------------------------------------------------------
-# User‐configurable inputs
-# -----------------------------------------------------------------------------
+DUMMY_CLASS_ID = 10
+DUMMY_CLASS_LABEL = "all"
 
-GT_FILE = Path("/home/kumaraditya/datasets/scenefun3d/val_gt/420693.txt")
-PRED_MAP_PATH = Path(
-    "/home/kumaraditya/datasets/scenefun3d/cg_outputs_weekend_run/scenefun3d_420693_cg-detector_2025-05-04-09-55-48.559283"
-)
-# PRED_MAP_PATH = Path(
-#     "/home/kumaraditya/datasets/scenefun3d/cg_outputs_weekend_run/scenefun3d_420693_cg-detector_2025-05-04-10-50-08.575507"
-# )
-PRED_MASKS_PATH = PRED_MAP_PATH / "functional_masks_laser_scan.npy"
-PRED_TYPES_PATH = PRED_MAP_PATH / "functional_mask_types.npy"
-
-# Map class‐IDs (1–9) to human‐readable names
 ID_TO_LABEL = {vid: lbl for vid, lbl in zip(VALID_CLASS_IDS, CLASS_LABELS)}
+ID_TO_LABEL[DUMMY_CLASS_ID] = DUMMY_CLASS_LABEL
 
 
 # -----------------------------------------------------------------------------
@@ -100,20 +91,29 @@ def compute_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray):
     """
     Returns
     -------
-    metrics : dict[class_id -> dict of {'precision','recall','f1','iou'}]
-    counts  : dict[class_id -> int]  # number of GT points for that class
+    metrics  : dict[class_id -> dict of {'precision','recall','f1','iou'}]
+    counts   : dict[class_id -> int]  # number of GT points
+    tp_dict  : dict[class_id -> int]
+    fp_dict  : dict[class_id -> int]
+    fn_dict  : dict[class_id -> int]
     """
     metrics = {}
     counts = {}
-    # classes = sorted(set(gt_labels.tolist()) - {0})
+    tp_dict = {}
+    fp_dict = {}
+    fn_dict = {}
     classes = sorted(set(gt_labels.tolist()))
+
+    # NOTE: Removes bg class
+    classes.remove(0)
+
     for c in classes:
         gt_c = gt_labels == c
         pred_c = pred_labels == c
 
-        tp = np.logical_and(gt_c, pred_c).sum()
-        fp = np.logical_and(~gt_c, pred_c).sum()
-        fn = np.logical_and(gt_c, ~pred_c).sum()
+        tp = int(np.logical_and(gt_c, pred_c).sum())
+        fp = int(np.logical_and(~gt_c, pred_c).sum())
+        fn = int(np.logical_and(gt_c, ~pred_c).sum())
 
         precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
@@ -131,8 +131,11 @@ def compute_metrics(gt_labels: np.ndarray, pred_labels: np.ndarray):
             "iou": iou,
         }
         counts[c] = int(gt_c.sum())  # total GT points for class c
+        tp_dict[c] = tp
+        fp_dict[c] = fp
+        fn_dict[c] = fn
 
-    return metrics, counts
+    return metrics, counts, tp_dict, fp_dict, fn_dict
 
 
 # -----------------------------------------------------------------------------
@@ -206,17 +209,45 @@ def print_metrics_table(metrics: dict, counts: dict):
 
 
 # -----------------------------------------------------------------------------
+# Reporting TP/FP/FN
+# -----------------------------------------------------------------------------
+def print_tp_fp_fn(tp_dict, fp_dict, fn_dict):
+    """
+    Prints TP, FP, FN counts per class.
+    """
+    print("\nPer-class TP, FP, FN:")
+    for c in sorted(tp_dict.keys()):
+        label = ID_TO_LABEL.get(c, str(c))
+        print(f"{label}: TP={tp_dict[c]}, FP={fp_dict[c]}, FN={fn_dict[c]}")
+
+
+# -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
-if __name__ == "__main__":
+@hydra.main(version_base=None, config_path="configs", config_name="metrics")
+def main(cfg: DictConfig):
+
+    gt_file = Path(cfg.paths.scenefun3d_gt_dir) / f"{cfg.scene}.txt"
+
+    if cfg.pseudo_pred:
+        pred_masks_path = Path(cfg.paths.map_dir) / "pseudo_aff_masks_laserscan.npy"
+        pred_types_path = Path(cfg.paths.map_dir) / "pseudo_aff_types_laserscan.npy"
+    else:
+        pred_masks_path = Path(cfg.paths.map_dir) / "aff_masks_laserscan.npy"
+        pred_types_path = Path(cfg.paths.map_dir) / "aff_types_laserscan.npy"
+
     # 1) load GT
-    gt_labels, exclude_mask = load_gt_semantic(GT_FILE)
+    gt_labels, exclude_mask = load_gt_semantic(gt_file)
+    if cfg.class_agnostic:
+        gt_labels = np.full_like(gt_labels, DUMMY_CLASS_ID)
 
     # 2) load preds
-    masks = np.load(PRED_MASKS_PATH)  # (N_inst, N_pts), bool
-    types = np.load(PRED_TYPES_PATH)  # (N_inst,), int
+    masks = np.load(pred_masks_path)  # (N_inst, N_pts), bool
+    types = np.load(pred_types_path)  # (N_inst,), int
 
     pred_labels, conflict_count, N_pts = load_pred_semantic(masks, types, exclude_mask)
+    if cfg.class_agnostic:
+        pred_labels = np.full_like(pred_labels, DUMMY_CLASS_ID)
 
     # 3) drop excluded points entirely
     valid_idx = ~exclude_mask
@@ -224,8 +255,15 @@ if __name__ == "__main__":
     pred_labels = pred_labels[valid_idx]
 
     # 4) compute & print
-    metrics, counts = compute_metrics(gt_labels, pred_labels)
+    metrics, counts, tp_counts, fp_counts, fn_counts = compute_metrics(
+        gt_labels, pred_labels
+    )
     print_metrics_table(metrics, counts)
+    print_tp_fp_fn(tp_counts, fp_counts, fn_counts)
 
     print(f"\nConflicting points (masked by size): {conflict_count}")
     print(f"Total points: {N_pts}")
+
+
+if __name__ == "__main__":
+    main()

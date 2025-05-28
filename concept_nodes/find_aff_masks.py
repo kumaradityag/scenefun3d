@@ -1,7 +1,8 @@
 import numpy as np
 import open3d as o3d
 import os
-import argparse
+import hydra
+from omegaconf import DictConfig
 from pathlib import Path
 import json
 from scipy.spatial import KDTree
@@ -46,7 +47,9 @@ def rle_encode(mask):
 # -------------------------------
 # Save masks in benchmark format
 # -------------------------------
-def save_benchmark_format(masks, func_types, func_scores, visit_id, results_dir):
+def save_benchmark_format(
+    masks, func_types, func_scores, visit_id, results_dir, use_score=False
+):
     """
     Save instance masks and metadata in benchmark format.
 
@@ -84,7 +87,9 @@ def save_benchmark_format(masks, func_types, func_scores, visit_id, results_dir)
         with open(abs_path, "w") as f:
             f.write(rle_string + "\n")
 
-        score = 1.0
+        if not use_score:
+            score = 1.0
+
         # Build entry: txt_line = "relative_path class_id score"
         txt_line = f"{rel_path} {class_id} {score:.3f}"
         entries.append((score, txt_line))
@@ -98,13 +103,11 @@ def save_benchmark_format(masks, func_types, func_scores, visit_id, results_dir)
         if score > score_threshold:
             txt_lines.append(line)
 
-    print(txt_lines)
-
     # Save the visit_id.txt file
     with open(results_dir / f"{visit_id}.txt", "w") as f:
         f.write("\n".join(txt_lines))
 
-    print(f"Benchmark format saved to {results_dir}")
+    return
 
 
 # -------------------------------
@@ -291,8 +294,15 @@ def filter_masks(masks, func_types, func_scores, iou_threshold=0.5):
 # -------------------------------
 # Main
 # -------------------------------
-def main(args):
-    map_pcd, segments_anno = load_map_and_segments(args.map_path)
+@hydra.main(version_base=None, config_path="configs", config_name="masks")
+def main(cfg: DictConfig):
+    # Resolve paths
+    map_path = cfg.paths.map_dir
+    data_dir = cfg.paths.scenefun3d_dir
+    results_dir = cfg.paths.scenefun3d_pred_dir
+
+    # Load map and annotations
+    map_pcd, segments_anno = load_map_and_segments(map_path)
 
     # Extract functionality instances
     func_pcds, func_types, func_scores = extract_functionality_instances(
@@ -301,16 +311,15 @@ def main(args):
     print(f"Total functionality instances found: {len(func_pcds)}")
 
     # Load laser scan
-    data_parser = DataParser(args.data_dir)
-    laser_scan = data_parser.get_laser_scan(args.visit_id)
+    data_parser = DataParser(data_dir)
+    laser_scan = data_parser.get_laser_scan(cfg.scene)
     laser_scan_points = np.asarray(laser_scan.points)
 
     # Align and compute masks
-    threshold = args.threshold
+    threshold = cfg.threshold
     masks = compute_masks_for_functionality_instances(
         func_pcds, laser_scan_points, threshold
     )
-    # masks = compute_masks_from_laser_queries(func_pcds, laser_scan_points, threshold)
 
     # masks, func_types, func_scores = filter_masks(
     #     masks, func_types, func_scores, iou_threshold=0.25
@@ -319,40 +328,18 @@ def main(args):
     # print(f"Final number of functionality instances: {len(func_types)}")
 
     # Save results
-    save_path = Path(args.map_path)
-    np.save(save_path / "functional_masks_laser_scan.npy", masks)
-    np.save(save_path / "functional_mask_types.npy", np.array(func_types))
+    save_path = Path(map_path)
+    np.save(save_path / "aff_masks_laserscan.npy", masks)
+    np.save(save_path / "aff_types_laserscan.npy", np.array(func_types))
 
     print(f"Saved {masks.shape[0]} functionality masks to {save_path}")
 
-    benchmark_results_path = args.results_dir
+    # Save benchmark format
     save_benchmark_format(
-        masks, func_types, func_scores, args.visit_id, benchmark_results_path
+        masks, func_types, func_scores, cfg.scene, results_dir, cfg.score_flag
     )
-    print(f"Saved benchmark format to {benchmark_results_path}")
+    print(f"Saved benchmark format to {results_dir}")
 
 
-# -------------------------------
-# Entry point
-# -------------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", default="data", help="Path of the data")
-    parser.add_argument("--visit_id", required=True, help="Identifier of the scene")
-    parser.add_argument(
-        "--map_path", required=True, help="Path of the concept-nodes map"
-    )
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.01,
-        help="Distance threshold for matching functionality instances to laser scan points (in meters)",
-    )
-    parser.add_argument(
-        "--results_dir",
-        type=Path,
-        default="/datasets/scenefun3d/val_pred",
-        help="Directory to save benchmark results",
-    )
-    args = parser.parse_args()
-    main(args)
+    main()

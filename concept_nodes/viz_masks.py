@@ -75,7 +75,7 @@ def main(args):
     # laser_scan = data_parser.get_cropped_laser_scan(args.visit_id, laser_scan)
 
     # Define file paths
-    masks_laser_scan_path = Path(args.map_path) / "functional_masks_laser_scan.npy"
+    masks_laser_scan_path = Path(args.map_path) / "aff_masks_laserscan.npy"
     masks_laser_scan = np.load(masks_laser_scan_path)  # (num_instances, num_points)
 
     # Run the interactive visualization
