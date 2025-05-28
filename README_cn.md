@@ -36,7 +36,7 @@ Before evaluation, you must prepare the SceneFun3D ground truth for the scenes y
    ```
 
 2. **Prepare GT files:**
-   Run the following command (edit the paths as needed):
+   Run the following command (edit the dataset paths as needed):
 
    ```bash
    python -m eval.functionality_segmentation.prepare_gt_val_data \
