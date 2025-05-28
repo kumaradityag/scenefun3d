@@ -3,6 +3,7 @@ from scipy.optimize import linear_sum_assignment
 from pathlib import Path
 import hydra
 from omegaconf import DictConfig
+import pandas as pd
 
 from eval.functionality_segmentation.eval_utils import util_3d
 from eval.functionality_segmentation.eval_utils.benchmark_labels import (
@@ -93,40 +94,58 @@ def evaluate_recall(gt_masks, gt_types, pred_masks, pred_types, iou_thresholds):
     tp_dict = {}
     fp_dict = {}
     fn_dict = {}
-    all_classes = sorted(set(gt_types.tolist()))
+    all_classes = sorted(set(gt_types.tolist()) | set(pred_types.tolist()))
 
     for c in all_classes:
+        # indices for this class
         gt_idx = np.where(gt_types == c)[0]
         pred_idx = np.where(pred_types == c)[0]
-        counts[c] = len(gt_idx)
 
-        if counts[c] == 0:
-            continue  # no GT for this class
+        n_gt, n_pred = len(gt_idx), len(pred_idx)
+        counts[c] = n_gt  # will be 0 when class absent in GT
 
-        gt_sub = gt_masks[gt_idx]
-        pred_sub = (
-            pred_masks[pred_idx]
-            if pred_idx.size
-            else np.zeros((0, gt_masks.shape[1]), bool)
-        )
+        # Case A – class present only in predictions
+        if n_gt == 0 and n_pred > 0:
+            results[c] = [np.nan] * len(iou_thresholds)
+            tp_dict[c] = [0] * len(iou_thresholds)
+            fp_dict[c] = [n_pred] * len(iou_thresholds)
+            fn_dict[c] = [0] * len(iou_thresholds)
+            continue
 
-        if pred_sub.shape[0] == 0:
-            # no predictions ⇒ zero recall, zero TP/FP, all GT as FN
+        # Case B – GT exists but no predictions
+        if n_pred == 0:
             results[c] = [0.0] * len(iou_thresholds)
             tp_dict[c] = [0] * len(iou_thresholds)
             fp_dict[c] = [0] * len(iou_thresholds)
-            fn_dict[c] = [counts[c]] * len(iou_thresholds)
+            fn_dict[c] = [n_gt] * len(iou_thresholds)
             continue
 
+        # Case C – GT and predictions both present
+        gt_sub = gt_masks[gt_idx]  # (n_gt, P)
+        pred_sub = pred_masks[pred_idx]  # (n_pred, P)
         iou_mat = compute_iou_matrix(gt_sub, pred_sub)
-        row_ind, col_ind = linear_sum_assignment(-iou_mat)
-        matched_ious = iou_mat[row_ind, col_ind]
 
-        recalls = [(matched_ious >= thr).sum() / counts[c] for thr in iou_thresholds]
-        tps = [(matched_ious >= thr).sum() for thr in iou_thresholds]
-        fps = [pred_sub.shape[0] - tp for tp in tps]
-        fns = [counts[c] - tp for tp in tps]
+        tps, fps, fns, recalls = [], [], [], []
 
+        for thr in iou_thresholds:
+            # Hungarian assignment allowing only IoU >= thr
+            cost = -iou_mat.copy()
+            cost[iou_mat < thr] = 1.0
+
+            row_ind, col_ind = linear_sum_assignment(cost)
+            matched_ious = iou_mat[row_ind, col_ind]
+
+            tp = int((matched_ious >= thr).sum())
+            fp = n_pred - tp
+            fn = n_gt - tp
+            rec = tp / n_gt
+
+            tps.append(tp)
+            fps.append(fp)
+            fns.append(fn)
+            recalls.append(rec)
+
+        # save per-class results
         results[c] = recalls
         tp_dict[c] = tps
         fp_dict[c] = fps
@@ -151,15 +170,16 @@ def print_recall_table(results, counts, iou_thresholds):
         for c, recs in results.items()
     ]
 
-    # --- compute average rows ---
-    total = sum(counts[c] for c in results)
+    # only consider classes with GT instances
+    valid_classes = [c for c in results if counts[c] > 0]
+    total = sum(counts[c] for c in valid_classes)
     avg_w = [
-        sum(results[c][i] * counts[c] for c in results) / total
+        sum(results[c][i] * counts[c] for c in valid_classes) / total
         for i in range(len(iou_thresholds))
     ]
     weighted_row = ["Weighted Avg"] + [f"{v:.3f}" for v in avg_w]
 
-    avg_unw = np.mean(list(results.values()), axis=0)
+    avg_unw = np.nanmean(list(results.values()), axis=0)
     unweighted_row = ["Unweighted"] + [f"{v:.3f}" for v in avg_unw]
 
     # --- determine column widths ---
@@ -202,6 +222,43 @@ def print_tp_fp_fn(tp_dict, fp_dict, fn_dict, iou_thresholds):
         print(f"{label}: {metrics}")
 
 
+def save_recall_csv(results, counts, iou_thresholds, save_path):
+    # build rows
+    rows = []
+    for c, recs in results.items():
+        row = {"Class": ID_TO_LABEL.get(c, str(c))}
+        for thr, r in zip(iou_thresholds, recs):
+            row[f"R@{thr:.2f}"] = r
+        rows.append(row)
+    # weighted avg
+    total = sum(counts[c] for c in results)
+    w_row = {"Class": "Weighted Avg"}
+    for j, thr in enumerate(iou_thresholds):
+        w_row[f"R@{thr:.2f}"] = sum(results[c][j] * counts[c] for c in results) / total
+    rows.append(w_row)
+    # unweighted avg
+    uw = np.mean(list(results.values()), axis=0)
+    uw_row = {"Class": "Unweighted"}
+    for thr, v in zip(iou_thresholds, uw):
+        uw_row[f"R@{thr:.2f}"] = v
+    rows.append(uw_row)
+    df = pd.DataFrame(rows)
+    df.to_csv(save_path, index=False)
+
+
+def save_tp_fp_fn_csv(tp_dict, fp_dict, fn_dict, iou_thresholds, save_path):
+    rows = []
+    for c in sorted(tp_dict.keys()):
+        row = {"Class": ID_TO_LABEL.get(c, str(c))}
+        for thr, tp, fp, fn in zip(iou_thresholds, tp_dict[c], fp_dict[c], fn_dict[c]):
+            row[f"TP@{thr:.2f}"] = tp
+            row[f"FP@{thr:.2f}"] = fp
+            row[f"FN@{thr:.2f}"] = fn
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    df.to_csv(save_path, index=False)
+
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
@@ -235,8 +292,14 @@ def main(cfg: DictConfig):
 
     # print single Recall table with both weighted and unweighted averages
     print_recall_table(results, counts, cfg.iou_thresholds)
-
     print_tp_fp_fn(tp_counts, fp_counts, fn_counts, cfg.iou_thresholds)
+
+    out_dir = Path(cfg.paths.results_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    save_recall_csv(results, counts, cfg.iou_thresholds, out_dir / "recall_table.csv")
+    save_tp_fp_fn_csv(
+        tp_counts, fp_counts, fn_counts, cfg.iou_thresholds, out_dir / "tp_fp_fn.csv"
+    )
 
 
 if __name__ == "__main__":

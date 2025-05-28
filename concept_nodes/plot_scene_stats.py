@@ -43,8 +43,8 @@ def load_predictions(
     counts   : {canon_name: [vertex_count, …]}
     vert_cnt : same dictionary, but the value is a list of vertex counts (one per instance)
     """
-    masks_path = pred_dir / "functional_masks_laser_scan.npy"
-    types_path = pred_dir / "functional_mask_types.npy"
+    masks_path = pred_dir / "aff_masks_laserscan.npy"
+    types_path = pred_dir / "aff_types_laserscan.npy"
 
     if not masks_path.exists() or not types_path.exists():
         raise FileNotFoundError("Prediction files not found in %s" % pred_dir)
@@ -287,7 +287,7 @@ def main(cfg: DictConfig):
 
     pred_dir = Path(cfg.paths.map_dir)
     gt_file = Path(cfg.paths.scenefun3d_gt_dir) / f"{cfg.scene}.txt"
-    save_dir = Path(cfg.paths.plots_dir) / cfg.scene
+    save_dir = Path(cfg.paths.stat_plots_dir) / str(cfg.scene)
     fig_dir = save_dir / "figures"
     hist_dir = save_dir / "histograms"
 
@@ -298,6 +298,15 @@ def main(cfg: DictConfig):
     # Counts
     counts_pred = tally_instances(pred_vert)
     counts_gt = tally_instances(gt_vert)
+
+    # Print counts per class and total
+    print("Counts per class:")
+    for canon in CANONICAL_NAMES:
+        readable = canon.replace("_", " ").title()
+        print(
+            f"{readable}: GT={counts_gt.get(canon,0)}, Pred={counts_pred.get(canon,0)}"
+        )
+    print(f"Total: GT={sum(counts_gt.values())}, Pred={sum(counts_pred.values())}")
 
     # Bar plots
     plot_bar(counts_gt, "Affordance counts – Ground Truth", fig_dir / "counts_gt.png")
