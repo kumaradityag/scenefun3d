@@ -1,0 +1,7 @@
+defaults:
+  - paths: paths
+  - _self_
+
+scene: 420693
+threshold: 0.01
+score_flag: false

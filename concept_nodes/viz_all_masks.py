@@ -30,7 +30,7 @@ def main(args):
     num_laser_pts = laser_pts.shape[0]
 
     # Load functional masks
-    masks = np.load(map_path / "functional_masks_laser_scan.npy")
+    masks = np.load(map_path / "aff_masks_laserscan.npy")
     num_func_instances = masks.shape[0]
 
     print(f"Laser scan points: {num_laser_pts}")
@@ -51,15 +51,19 @@ def main(args):
     laser_scan.colors = o3d.utility.Vector3dVector(colors)
     laser_scan = data_parser.get_cropped_laser_scan(args.visit_id, laser_scan)
     laser_scan = laser_scan.voxel_down_sample(voxel_size=0.025)
+
     # laser_scan = pc_estimate_normals(laser_scan)
     # o3d.visualization.draw_geometries([laser_scan], window_name="Functional Masks on Laser Scan")
-    o3d.io.write_point_cloud(str(map_path / "functional_masks_laser_scan.pcd"), laser_scan)
+
+    o3d.io.write_point_cloud(str(map_path / "aff_masks_laserscan.pcd"), laser_scan)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", default="data", help="Path of the data")
     parser.add_argument("--visit_id", required=True, help="Identifier of the scene")
-    parser.add_argument("--map_path", required=True, help="Path of the concept-nodes map")
+    parser.add_argument(
+        "--map_path", required=True, help="Path of the concept-nodes map"
+    )
     args = parser.parse_args()
     main(args)

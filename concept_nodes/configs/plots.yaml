@@ -1,0 +1,8 @@
+defaults:
+  - paths: paths
+  - _self_
+
+recall_plot:
+  colormap: "viridis"
+
+scene: 420693

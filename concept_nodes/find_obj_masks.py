@@ -1,7 +1,9 @@
 import numpy as np
 import open3d as o3d
 import os
-import argparse
+import hydra
+from omegaconf import DictConfig
+from hydra.utils import to_absolute_path
 from pathlib import Path
 import json
 from scipy.spatial import KDTree
@@ -98,29 +100,27 @@ def map_laser_scan_to_instances(
     return masks
 
 
-def main(args):
-    # -----------------------
+@hydra.main(version_base=None, config_path="configs", config_name="masks")
+def main(cfg: DictConfig):
     #  Load map + annotations
-    # -----------------------
-    map_pcd, segments_anno = load_map_pcd_and_segments(args.map_path)
+    map_path = to_absolute_path(cfg.paths.map_dir)
+    data_dir = to_absolute_path(cfg.paths.scenefun3d_dir)
+
+    map_pcd, segments_anno = load_map_pcd_and_segments(map_path)
 
     # Build a structure telling us which map-pt belongs to which instance(s)
     instance_ids_for_map_pt, num_instances = build_instance_map(map_pcd, segments_anno)
     print(f"Found {num_instances} instances in the map.")
 
-    # -----------------------
     #  Load a laser scan
-    # -----------------------
-    data_parser = DataParser(args.data_dir)
-    laser_scan = data_parser.get_laser_scan(args.visit_id)
-    laser_scan = data_parser.get_cropped_laser_scan(args.visit_id, laser_scan)
+    data_parser = DataParser(data_dir)
+    laser_scan = data_parser.get_laser_scan(cfg.scene)
+    laser_scan = data_parser.get_cropped_laser_scan(cfg.scene, laser_scan)
     laser_scan_points = np.asarray(laser_scan.points)
 
-    # -----------------------
     #  Create the instance masks for the laser scan
     #  For each laser point, find the nearest neighbor in the map pcd (with threshold).
-    # -----------------------
-    threshold = args.threshold
+    threshold = cfg.threshold
     masks = map_laser_scan_to_instances(
         laser_scan_points,
         map_pcd,
@@ -131,23 +131,5 @@ def main(args):
 
     print("masks shape:", masks.shape)  # (num_instances, num_laser_points)
 
-    masks_save_path = Path(args.map_path) / "masks_laser_scan.npy"
+    masks_save_path = Path(map_path) / "obj_masks_laserscan.npy"
     np.save(masks_save_path, masks)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", default="data", help="Path of the data")
-    parser.add_argument("--visit_id", required=True, help="Identifier of the scene")
-    parser.add_argument(
-        "--map_path", required=True, help="Path of the concept-nodes map"
-    )
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.025,
-        help="Distance threshold for matching laser points to map instances",
-    )
-    args = parser.parse_args()
-
-    main(args)

@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
-
+import hydra
+from omegaconf import DictConfig
 import numpy as np
 import open3d as o3d
 from scipy.spatial import KDTree
@@ -125,24 +126,36 @@ def save_benchmark_format(
     with open(results_dir / f"{visit_id}.txt", "w") as f:
         f.write("\n".join(line for _, line in entries))
 
-    print(f"Benchmark saved to {results_dir}")
+    print(f"Saved benchmark format to {results_dir}")
 
 
-def main(args):
+def save_to_map_dir(masks: np.ndarray, types: list[int], pred_map_dir: Path):
+    """
+    Save masks and types to the predicted map directory.
+    Masks are saved as a numpy array, types also as a numpy array.
+    """
+
+    np.save(pred_map_dir / "pseudo_aff_masks_laserscan.npy", masks.astype(bool))
+    np.save(pred_map_dir / "pseudo_aff_types_laserscan.npy", np.array(types, dtype=int))
+    print(f"Saved pseudo masks and types to {pred_map_dir}")
+
+
+@hydra.main(version_base=None, config_path="configs", config_name="masks")
+def main(cfg: DictConfig):
     # 1) Load GT scan via DataParser
-    dp = DataParser(args.data_dir)
-    gt_pc = dp.get_laser_scan(args.visit_id)
+    dp = DataParser(cfg.paths.scenefun3d_dir)
+    gt_pc = dp.get_laser_scan(cfg.scene)
     gt_pts = np.asarray(gt_pc.points)
 
     # 2) Load predicted map points
-    pred_pc = o3d.io.read_point_cloud(str(args.pred_map_dir / "point_cloud.pcd"))
+    pred_pc = o3d.io.read_point_cloud(str(Path(cfg.paths.map_dir) / "point_cloud.pcd"))
     pred_pts = np.asarray(pred_pc.points)
 
     # 3) Compute mapping mask
-    mapping_mask = compute_mapping_mask(gt_pts, pred_pts, args.threshold)
+    mapping_mask = compute_mapping_mask(gt_pts, pred_pts, cfg.threshold)
 
     # 4) Load GT labels and log coverage
-    gt_ids = load_gt_labels(args.val_gt_folder / f"{args.visit_id}.txt")
+    gt_ids = load_gt_labels(Path(cfg.paths.scenefun3d_gt_dir) / f"{cfg.scene}.txt")
     print("--- COVERAGE STATS ---")
     log_coverage_stats(gt_ids, mapping_mask)
 
@@ -154,42 +167,11 @@ def main(args):
     scores = [1.0] * len(types)
 
     # 7) Save benchmark results
-    save_benchmark_format(masks, types, scores, args.visit_id, args.results_dir)
+    save_to_map_dir(masks, types, Path(cfg.paths.map_dir))
+    save_benchmark_format(
+        masks, types, scores, cfg.scene, cfg.paths.scenefun3d_pseudo_pred_dir
+    )
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser(
-        description="Generate pseudo-predictions by masking unmapped GT points."
-    )
-    p.add_argument(
-        "--data_dir", type=Path, required=True, help="Root data folder for DataParser"
-    )
-    p.add_argument(
-        "--pred_map_dir",
-        type=Path,
-        required=True,
-        help="Directory containing point_cloud.pcd",
-    )
-    p.add_argument(
-        "--val_gt_folder",
-        type=Path,
-        required=True,
-        help="Folder of <visit_id>.txt GT label files",
-    )
-    p.add_argument(
-        "--visit_id", type=str, required=True, help="Scene identifier / filename prefix"
-    )
-    p.add_argument(
-        "--results_dir",
-        type=Path,
-        required=True,
-        help="Where to write benchmark outputs",
-    )
-    p.add_argument(
-        "--threshold",
-        type=float,
-        default=0.5,
-        help="Distance threshold for mapping GT→pred",
-    )
-    args = p.parse_args()
-    main(args)
+    main()
