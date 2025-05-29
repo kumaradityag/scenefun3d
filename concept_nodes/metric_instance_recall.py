@@ -301,6 +301,5 @@ def main(cfg: DictConfig):
         tp_counts, fp_counts, fn_counts, cfg.iou_thresholds, out_dir / "tp_fp_fn.csv"
     )
 
-
 if __name__ == "__main__":
     main()
