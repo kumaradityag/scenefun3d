@@ -124,8 +124,20 @@ python -m concept_nodes.plot_recall_cf
 
 ---
 
+### 6. Affordance Mask Viewer
+
+* Config file: `concept_nodes/configs/viz.yaml`
+
+**To run the affordance viewer to inspect the ground-truth and predicted affordance masks:**
+
+```bash
+python -m concept_nodes.viz_pred_gt_aff_masks
+```
+
+---
+
 **Note:**
 
-* Ensure all configuration files (`paths.yaml`, `masks.yaml`, `metrics.yaml`, `plots.yaml`) are updated before running these steps.
+* Ensure all configuration files (`paths.yaml`, `masks.yaml`, `metrics.yaml`, `plots.yaml`, `viz.yaml`) are updated before running these steps.
 * For evaluation across multiple scenes, the recall/sematic seg scripts need to be modified.
 
