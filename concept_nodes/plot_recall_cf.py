@@ -11,10 +11,8 @@ import matplotlib.pyplot as plt
 @hydra.main(version_base=None, config_path="configs", config_name="plots")
 def plot_confusion_matrices(cfg: DictConfig):
     # Extract config values
-    input_dir = cfg.paths.results_plots_dir
-    colormap = (
-        cfg.recall_plot.colormap if hasattr(cfg.recall_plot, "colormap") else "viridis"
-    )
+    input_dir = cfg.paths.results_dir
+    colormap = cfg.recall_plot.colormap
 
     # Filenames
     csv_name = "tp_fp_fn.csv"
@@ -65,10 +63,10 @@ def plot_confusion_matrices(cfg: DictConfig):
                 cm,
                 annot=True,
                 fmt="d",
-                cbar=False,
-                # cmap=colormap,
-                vmin=0,
-                vmax=row_max,
+                cbar=True,
+                cmap=colormap,
+                # vmin=0,
+                # vmax=row_max,
                 xticklabels=["Actual Pos", "Actual Neg"],
                 yticklabels=["Pred Pos", "Pred Neg"],
                 ax=ax,
@@ -119,10 +117,10 @@ def plot_confusion_matrices(cfg: DictConfig):
             cm,
             annot=True,
             fmt="d",
-            cbar=False,
-            # cmap=colormap,
-            vmin=0,
-            vmax=comb_max,
+            cbar=True,
+            cmap=colormap,
+            # vmin=0,
+            # vmax=comb_max,
             xticklabels=["Actual Pos", "Actual Neg"],
             yticklabels=["Pred Pos", "Pred Neg"],
             ax=ax,

@@ -5,6 +5,5 @@ scenefun3d_pseudo_pred_dir: /home/kumaraditya/datasets/scenefun3d/val_pseudo_pre
 
 map_dir: /home/kumaraditya/datasets/scenefun3d/cg_outputs_weekend_run/scenefun3d_420693_cg-detector_2025-05-04-09-55-48.559283
 
-results_dir: /home/kumaraditya/scenefun3d/concept_nodes/recall_results_pseudo_agnostic
-results_plots_dir: /home/kumaraditya/scenefun3d/concept_nodes/recall_results
-stat_plots_dir: /home/kumaraditya/scenefun3d/concept_nodes/stats_plots
+results_dir: /home/kumaraditya/scenefun3d/concept_nodes/output/recall_results
+stat_plots_dir: /home/kumaraditya/scenefun3d/concept_nodes/output/stats_plots

@@ -1,0 +1,5 @@
+defaults:
+  - paths: paths
+  - _self_
+
+scene: 420693

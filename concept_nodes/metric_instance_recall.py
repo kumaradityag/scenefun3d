@@ -230,14 +230,17 @@ def save_recall_csv(results, counts, iou_thresholds, save_path):
         for thr, r in zip(iou_thresholds, recs):
             row[f"R@{thr:.2f}"] = r
         rows.append(row)
-    # weighted avg
-    total = sum(counts[c] for c in results)
+    # weighted avg over classes with GT instances only
+    valid_classes = [c for c in results if counts[c] > 0]
+    total = sum(counts[c] for c in valid_classes)
     w_row = {"Class": "Weighted Avg"}
     for j, thr in enumerate(iou_thresholds):
-        w_row[f"R@{thr:.2f}"] = sum(results[c][j] * counts[c] for c in results) / total
+        w_row[f"R@{thr:.2f}"] = (
+            sum(results[c][j] * counts[c] for c in valid_classes) / total
+        )
     rows.append(w_row)
-    # unweighted avg
-    uw = np.mean(list(results.values()), axis=0)
+    # unweighted avg ignoring NaNs
+    uw = np.nanmean(list(results.values()), axis=0)
     uw_row = {"Class": "Unweighted"}
     for thr, v in zip(iou_thresholds, uw):
         uw_row[f"R@{thr:.2f}"] = v
