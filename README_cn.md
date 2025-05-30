@@ -124,15 +124,30 @@ python -m concept_nodes.plot_recall_cf
 
 ---
 
-### 6. Affordance Mask Viewer
+### 6. Viewers
+
+**Affordance Mask Viewer**
 
 * Config file: `concept_nodes/configs/viz.yaml`
 
-**To run the affordance viewer to inspect the ground-truth and predicted affordance masks:**
+To run the affordance viewer to inspect the ground-truth and predicted affordance masks:
 
 ```bash
 python -m concept_nodes.viz_pred_gt_aff_masks
 ```
+
+**Camera Trajectory Viewer**
+
+To run the camera trajectory viewer for a scene:
+
+```bash
+python -m concept_nodes.viz_camera_poses \
+--map-dir /path/to/map \
+--scenefun3d-data-dir /path/to/scenefun3d_dataset \
+--scene-id <scene id>
+```
+
+This script will launch viser on `http://localhost:8080`. You can also forward the port 8080 to your local system and view the scene in your browser.
 
 ---
 

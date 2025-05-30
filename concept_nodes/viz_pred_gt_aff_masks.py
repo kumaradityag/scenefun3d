@@ -182,16 +182,23 @@ class AffordanceViewer:
         pcd_pred = self.main_pcd.select_by_index(pred_idxs)
         pcd_inter = self.main_pcd.select_by_index(inter_idxs)
         pcd_rest = self.main_pcd.select_by_index(rest)
-        pcd_rest.paint_uniform_color([0.7, 0.7, 0.7])
+
+        # NOTE: If you want to visualize the remaining points in gray, uncomment the line below
+        # pcd_rest.paint_uniform_color([0.7, 0.7, 0.7])
 
         # RGB view
         self.affordance_rgb_pcd = pcd_gt + pcd_pred + pcd_inter
+        # NOTE: If you want to see the remaining points, uncomment the line below
+        # self.affordance_rgb_pcd += pcd_rest
 
         # semantic view
         pcd_gt.paint_uniform_color([0, 0, 1])
         pcd_pred.paint_uniform_color([1, 0, 0])
         pcd_inter.paint_uniform_color([0, 1, 0])
+
         self.affordance_semantic_pcd = pcd_gt + pcd_pred + pcd_inter
+        # NOTE: If you want to see the remaining points, uncomment the line below
+        # self.affordance_semantic_pcd += pcd_rest
 
         self.current_affordance = affordance_type
 
