@@ -200,6 +200,14 @@ class AffordanceViewer:
         # NOTE: If you want to see the remaining points, uncomment the line below
         # self.affordance_semantic_pcd += pcd_rest
 
+        save_dir = Path("/home/kumaraditya/sf3d_aff_viz")
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+        o3d.io.write_point_cloud(
+            save_dir / f"affordance_semantic_{affordance_type}.pcd",
+            self.affordance_semantic_pcd,
+        )
+
         self.current_affordance = affordance_type
 
     def _make_affordance_callback(self, affordance_type):
