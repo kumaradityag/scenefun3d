@@ -1,0 +1,18 @@
+defaults:
+  - paths: paths
+  - _self_
+
+paths:
+  task2_pred_dir: /home/kumaraditya/datasets/scenefun3d_v2/val_pred_task2_text
+  # task2_fun3du_pred_dir: /home/kumaraditya/datasets/scenefun3d_v2/val_pred_task2_top1_fun3du
+
+scene: 420693
+threshold: 0.01
+score_flag: false # whether to use instance 'score' or force 1.0
+
+use_alt_query: false # switch between two mask computation styles
+nms:
+  enable: false
+  iou_threshold: 0.25
+make_zip: false
+zip_name: "submission_task2.zip"
